@@ -1,0 +1,12 @@
+langgraph>=0.2.0
+langchain-deepseek>=0.1.0
+langchain-mcp-adapters==0.3.2
+mcp==1.30.0
+sqlalchemy>=2.0.0
+pandas>=2.0.0
+plotly>=5.0.0
+streamlit>=1.30.0
+python-dotenv>=1.0.0
+pydantic-settings>=2.0.0
+python-docx>=1.0.0
+openai>=1.0.0

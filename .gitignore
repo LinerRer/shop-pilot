@@ -1,0 +1,21 @@
+# 密钥与环境
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# 数据与产物（可由 seed.py 重新生成）
+data/*.db
+logs/
+output/
+
+# 系统
+.DS_Store
+Thumbs.db
