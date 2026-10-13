@@ -1,59 +1,55 @@
 @echo off
-chcp 65001 >nul
 cd /d %~dp0
 
 echo ========================================
-echo   ShopPilot 一键启动
+echo   ShopPilot - One Click Start
 echo ========================================
 echo.
 
 if not exist .venv (
-    echo [1/4] 创建虚拟环境 .venv ...
+    echo [1/4] Creating virtual environment...
     python -m venv .venv
     if errorlevel 1 (
-        echo 创建虚拟环境失败，请确认已安装 Python 3.11 并加入 PATH
+        echo Failed to create venv. Please install Python 3.11 and add to PATH.
         pause
         exit /b 1
     )
 ) else (
-    echo [1/4] 虚拟环境已存在
+    echo [1/4] Virtual environment exists.
 )
 
-echo [2/4] 激活虚拟环境 ...
+echo [2/4] Activating virtual environment...
 call .venv\Scripts\activate.bat
 
-echo [3/4] 安装依赖（清华源）...
+echo [3/4] Installing dependencies...
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple -q
 if errorlevel 1 (
-    echo 依赖安装失败，请检查网络或 requirements.txt
+    echo Failed to install dependencies.
     pause
     exit /b 1
 )
 
 if not exist data\shop.db (
-    echo [4/4] 初始化模拟数据（约10秒）...
+    echo [4/4] Initializing database...
     python src\database\seed.py
     if errorlevel 1 (
-        echo 数据初始化失败
+        echo Failed to initialize database.
         pause
         exit /b 1
     )
 ) else (
-    echo [4/4] 数据库已存在，跳过初始化
+    echo [4/4] Database exists, skipping init.
 )
 
 if not exist .env (
     echo.
-    echo [警告] 未找到 .env 文件，请先创建并填入 DeepSeek API Key：
-    echo   DEEPSEEK_API_KEY=你的key
-    echo   DEEPSEEK_BASE_URL=https://api.deepseek.com
-    echo   DEEPSEEK_MODEL=deepseek-chat
+    echo [WARNING] .env file not found.
+    echo Please copy .env.example to .env and fill in your DEEPSEEK_API_KEY.
     echo.
     pause
     exit /b 1
 )
 
 echo.
-echo 启动 Streamlit ...
+echo Starting Streamlit...
 streamlit run src\ui\app.py
-pause
