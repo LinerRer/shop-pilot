@@ -39,18 +39,22 @@ Python 3.11 / DeepSeek / LangGraph ReAct / MCP 1.30 (FastMCP) / SQLAlchemy + SQL
 
 ## 跑起来
 
-```bash
-# 1. 建 .env，填 DeepSeek key
-DEEPSEEK_API_KEY=sk-xxx
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-chat
+**Windows 一键启动**（推荐）：
 
+```
+双击 start.bat
+```
+
+脚本自动创建虚拟环境、装依赖、初始化数据库、启动网页。首次运行前先建 `.env`（参考 `.env.example`），填入 DeepSeek API Key。
+
+**手动启动**：
+
+```bash
+# 1. 建 .env，填 DeepSeek key（参考 .env.example）
 # 2. 装依赖
 pip install -r requirements.txt
-
-# 3. 生成模拟数据（45天，含3个预埋异常）
+# 3. 生成模拟数据
 python src/database/seed.py
-
 # 4. 启动网页
 streamlit run src/ui/app.py
 ```
