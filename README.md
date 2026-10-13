@@ -90,4 +90,4 @@ src/
 - 多轮对话记忆（MVP 单轮够用）
 - 对接真实电商平台 API
 - 多用户/账号系统（纯 CRUD，没技术含量）
-- 评论聚类用的 LLM 直接聚，没上 embedding + KMeans（7 天冲刺省掉模型下载）
+- 评论聚类用的 LLM 直接聚，没上 embedding + KMeans（项目初期优先保证主链路跑通）
