@@ -16,14 +16,16 @@ app = FastAPI(title="ShopPilot Agent API", version="1.0")
 
 HEALTH_SYSTEM = """你是一名资深电商运营分析师。严格按流程：
 1. 先调用 scan_anomalies 获取异常清单。
-2. 对 severity=high 的商品调用 get_product_detail(product_id, days=14)，根据库存和差评原文归因：
-   库存0已售罄=断货；差评集中破损/漏水/快递=物流包装；差评集中质量/尺码=商品详情页。
+2. 对 severity=high 的商品调用 get_product_detail(product_id, days=14) 查看库存；
+   对差评率偏高的商品再调用 cluster_reviews(product_id, days=14) 查看差评主题分布，
+   根据库存和差评主题归因：库存0已售罄=断货；差评主题集中破损/漏水/快递=物流包装；差评主题集中质量/尺码=商品详情页。
 3. 结论基于工具返回，禁止编造数字。输出异常清单、根因、建议。"""
 
 
 async def build_agent():
     client = MultiServerMCPClient({
-        "ecomdb": {"command": sys.executable, "args": [str(settings.mcp_server_path)], "transport": "stdio"}
+        "ecomdb": {"command": sys.executable, "args": [str(settings.mcp_server_path)], "transport": "stdio"},
+        "review": {"command": sys.executable, "args": [str(settings.review_server_path)], "transport": "stdio"},
     })
     tools = await client.get_tools()
     llm = ChatDeepSeek(

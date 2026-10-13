@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     output_dir: Path = ROOT_DIR / "output"
     log_dir: Path = ROOT_DIR / "logs"
     mcp_server_path: Path = ROOT_DIR / "src" / "mcp_servers" / "ecomdb_server.py"
+    review_server_path: Path = ROOT_DIR / "src" / "mcp_servers" / "review_server.py"
 
     # 异常判断阈值（改这里就能调报警灵敏度，不用翻业务代码）
     bad_review_threshold: float = 15.0       # 差评率>=15%报警
@@ -29,6 +30,10 @@ class Settings(BaseSettings):
     # 日期窗口（天）
     recent_days: int = 7
     compare_days: int = 14
+
+    # 异常推送（留空则走模拟推送，打印到控制台）
+    notify_webhook_url: str = ""
+    notify_channel: str = "feishu"
 
     model_config = SettingsConfigDict(
         env_file=str(ENV_FILE),

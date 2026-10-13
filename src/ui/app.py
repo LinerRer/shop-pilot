@@ -5,6 +5,9 @@ from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import nest_asyncio
+nest_asyncio.apply()
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -21,11 +24,12 @@ SERVER = settings.mcp_server_path
 
 HEALTH_SYSTEM = """你是一名资深电商运营分析师。对店铺做自动体检，严格按流程：
 1. 第一步调用 scan_anomalies 获取确定性的异常清单。
-2. 对清单中 severity=high 的异常商品，逐个调用 get_product_detail(product_id, days=14)，
-   查看库存状态和最近差评原文做根因归因：
+2. 对清单中 severity=high 的异常商品，调用 get_product_detail(product_id, days=14) 查看库存；
+   对差评率偏高的商品再调用 cluster_reviews(product_id, days=14) 查看差评主题分布，
+   结合库存和差评主题归因：
    - 库存为0且状态已售罄 -> 断货，建议立即补货；
-   - 库存正常但差评集中在破损/漏水/包装/快递 -> 物流包装问题；
-   - 差评集中在质量/尺码/色差 -> 商品质量与详情页问题。
+   - 库存正常但差评主题集中破损/漏水/包装/快递 -> 物流包装问题；
+   - 差评主题集中质量/尺码/色差 -> 商品质量与详情页问题。
 3. 所有结论必须来自工具返回，禁止编造数字。
 4. 输出简洁中文体检报告：异常清单(表格)、根因判断、可执行建议。"""
 
@@ -47,19 +51,36 @@ def get_llm():
 
 async def _build_agent():
     client = MultiServerMCPClient({
-        "ecomdb": {"command": sys.executable, "args": [str(SERVER)], "transport": "stdio"}
+        "ecomdb": {"command": sys.executable, "args": [str(settings.mcp_server_path)], "transport": "stdio"},
+        "review": {"command": sys.executable, "args": [str(settings.review_server_path)], "transport": "stdio"},
     })
     tools = await client.get_tools()
     return create_react_agent(get_llm(), tools)
 
 
 def ask(question):
+    placeholder = st.empty()
+
     async def run():
         agent = await _build_agent()
-        resp = await agent.ainvoke({"messages": [HumanMessage(content=question)]})
-        log_trace("ask_web", resp["messages"])
-        return resp["messages"][-1].content
-    return _run_async(run())
+        full = ""
+        async for event in agent.astream_events(
+            {"messages": [HumanMessage(content=question)]}, version="v2"
+        ):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                text = getattr(chunk, "content", "")
+                if text:
+                    full += text
+                    placeholder.markdown(full + " ▌")
+            elif kind == "on_tool_start":
+                full += f"\n\n> 正在调用工具：{event.get('name', '')}...\n"
+                placeholder.markdown(full)
+        placeholder.markdown(full)
+        return full
+
+    return asyncio.run(run())
 
 
 def health_check():

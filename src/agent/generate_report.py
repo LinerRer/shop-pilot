@@ -10,6 +10,7 @@ from docx import Document
 from docx.shared import Pt
 
 from utils.config import settings
+from utils.notifier import send_notification
 from analytics import metrics
 from langchain_deepseek import ChatDeepSeek
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -20,15 +21,17 @@ SERVER = Path(__file__).resolve().parents[1] / "mcp_servers" / "ecomdb_server.py
 OUT_DIR = Path(__file__).resolve().parents[2] / "output"
 
 HEALTH_SYSTEM = """你是一名资深电商运营分析师。基于确定性异常清单做根因归因，输出中文报告：
-1. 对清单中 severity=high 的异常商品，调用 get_product_detail(product_id, days=14) 查看库存和差评原文。
-2. 归因规则：库存0已售罄=断货补货；差评集中破损/漏水/快递=物流包装问题；差评集中质量/尺码=商品与详情页问题。
+1. 对清单中 severity=high 的异常商品，调用 get_product_detail(product_id, days=14) 查看库存；
+   对差评率偏高的商品再调用 cluster_reviews(product_id, days=14) 查看差评主题分布。
+2. 归因规则：库存0已售罄=断货补货；差评主题集中破损/漏水/快递=物流包装问题；差评主题集中质量/尺码/色差=商品与详情页问题。
 3. 不要重复列异常清单（清单已由系统生成表格），只写：根因判断 + 每条可执行建议。
 4. 所有结论基于工具返回，禁止编造数字。"""
 
 
 async def get_root_cause_text():
     client = MultiServerMCPClient({
-        "ecomdb": {"command": sys.executable, "args": [str(SERVER)], "transport": "stdio"}
+        "ecomdb": {"command": sys.executable, "args": [str(settings.mcp_server_path)], "transport": "stdio"},
+        "review": {"command": sys.executable, "args": [str(settings.review_server_path)], "transport": "stdio"},
     })
     tools = await client.get_tools()
     llm = ChatDeepSeek(
@@ -97,6 +100,17 @@ async def main():
         ))
         sess.commit()
     print(f"已入库：异常{len(anomalies)}条 / high {high_count}条")
+
+    high_items = [a for a in anomalies if a["severity"] == "high"]
+    if high_items:
+        summary = "\n".join(
+            f"- {a.get('product', a.get('scope', ''))} {a['type']}：{a['evidence']}"
+            for a in high_items
+        )
+        send_notification(
+            "ShopPilot 运营异常告警",
+            f"发现 {len(high_items)} 条高级异常：\n{summary}\n\n日报已生成：{out_path.name}",
+        )
 
 
 if __name__ == "__main__":
