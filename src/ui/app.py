@@ -11,6 +11,7 @@ nest_asyncio.apply()
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 
 from utils.config import settings
 from utils.trace import log_trace
@@ -116,10 +117,36 @@ with tab_health:
 
 with tab_chart:
     st.subheader("经营数据看板")
+
+    anomalies = metrics.detect_anomalies()
+    high_count = sum(1 for a in anomalies if a.get("severity") == "high")
+    medium_count = sum(1 for a in anomalies if a.get("severity") == "medium")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("当前异常总数", len(anomalies))
+    col2.metric("高级异常", high_count)
+    col3.metric("中级异常", medium_count)
+    col4.metric("监控商品数", 8)
+
+    if anomalies:
+        st.warning("检测到异常，下方图表中红色标注为异常商品/日期")
+
     trend = metrics.get_trend("gmv", 14)
     df_t = pd.DataFrame(trend["series"])
-    st.plotly_chart(px.line(df_t, x="date", y="gmv", title="近14天GMV趋势", markers=True),
-                    use_container_width=True)
+    df_t["gmv"] = pd.to_numeric(df_t["gmv"])
+    df_t["prev"] = df_t["gmv"].shift(1)
+    df_t["change"] = (df_t["gmv"] - df_t["prev"]) / df_t["prev"] * 100
+    anomaly_dates = df_t[df_t["change"] < -20]["date"].tolist()
+
+    fig_gmv = go.Figure()
+    fig_gmv.add_trace(go.Scatter(x=df_t["date"], y=df_t["gmv"], mode="lines+markers",
+                                 name="GMV", line=dict(color="#1f77b4", width=2)))
+    if anomaly_dates:
+        df_anom = df_t[df_t["date"].isin(anomaly_dates)]
+        fig_gmv.add_trace(go.Scatter(x=df_anom["date"], y=df_anom["gmv"], mode="markers",
+                                     name="异常下跌", marker=dict(color="red", size=12, symbol="x")))
+    fig_gmv.update_layout(title="近14天GMV趋势（红色×为异常下跌日）", xaxis_title="日期", yaxis_title="GMV")
+    st.plotly_chart(fig_gmv, use_container_width=True)
 
     c1, c2 = st.columns(2)
     with c1:
@@ -130,5 +157,28 @@ with tab_chart:
     with c2:
         rk = metrics.get_product_ranking("gmv", "last_7d", top_n=8)
         df_r = pd.DataFrame(rk["ranking"])
-        st.plotly_chart(px.bar(df_r, x="name", y="gmv", title="近7天商品GMV排行", color="name"),
-                        use_container_width=True)
+        anomaly_products = set()
+        for a in anomalies:
+            pid = a.get("scope", "")
+            if pid and pid.startswith("P"):
+                anomaly_products.add(pid)
+        df_r["is_anomaly"] = df_r["product_id"].isin(anomaly_products)
+        colors = ["#ff4b4b" if x else "#1f77b4" for x in df_r["is_anomaly"]]
+        fig_rk = go.Figure(go.Bar(x=df_r["name"], y=df_r["gmv"], marker_color=colors))
+        fig_rk.update_layout(title="近7天商品GMV排行（红色为异常商品）",
+                             xaxis_title="商品", yaxis_title="GMV")
+        st.plotly_chart(fig_rk, use_container_width=True)
+
+    c3, c4 = st.columns(2)
+    with c3:
+        trend_p1008 = metrics.get_trend("gmv", 14, product_id="P1008")
+        df_p = pd.DataFrame(trend_p1008["series"])
+        fig_p = px.line(df_p, x="date", y="gmv", title="P1008保温杯 GMV趋势（物流破损异常）", markers=True)
+        fig_p.update_traces(line=dict(color="#ff4b4b"))
+        st.plotly_chart(fig_p, use_container_width=True)
+    with c4:
+        trend_refund = metrics.get_trend("refund_rate", 14)
+        df_rf = pd.DataFrame(trend_refund["series"])
+        fig_rf = px.line(df_rf, x="date", y="refund_rate", title="近14天退款率趋势", markers=True)
+        fig_rf.update_traces(line=dict(color="#ff7f0e"))
+        st.plotly_chart(fig_rf, use_container_width=True)
