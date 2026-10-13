@@ -76,6 +76,18 @@ class Refund(Base):
     create_time: Mapped[datetime.datetime] = mapped_column(DateTime, index=True)
 
 
+class DailyReport(Base):
+    __tablename__ = "daily_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    report_date: Mapped[datetime.date] = mapped_column(Date, index=True)
+    anomaly_count: Mapped[int] = mapped_column(Integer)
+    high_count: Mapped[int] = mapped_column(Integer)
+    anomalies_json: Mapped[str] = mapped_column(Text)
+    root_cause: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.now)
+
+
 BASE_DIR = Path(__file__).resolve().parents[2]
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)

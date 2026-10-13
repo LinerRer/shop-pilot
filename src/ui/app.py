@@ -10,13 +10,14 @@ import streamlit as st
 import plotly.express as px
 
 from utils.config import settings
+from utils.trace import log_trace
 from analytics import metrics
 from langchain_deepseek import ChatDeepSeek
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import SystemMessage, HumanMessage
 
-SERVER = Path(__file__).resolve().parents[1] / "mcp_servers" / "ecomdb_server.py"
+SERVER = settings.mcp_server_path
 
 HEALTH_SYSTEM = """你是一名资深电商运营分析师。对店铺做自动体检，严格按流程：
 1. 第一步调用 scan_anomalies 获取确定性的异常清单。
@@ -40,7 +41,7 @@ def get_llm():
         api_key=settings.deepseek_api_key,
         base_url=settings.deepseek_base_url,
         model=settings.deepseek_model,
-        temperature=0,
+        temperature=settings.llm_temperature,
     )
 
 
@@ -56,6 +57,7 @@ def ask(question):
     async def run():
         agent = await _build_agent()
         resp = await agent.ainvoke({"messages": [HumanMessage(content=question)]})
+        log_trace("ask_web", resp["messages"])
         return resp["messages"][-1].content
     return _run_async(run())
 
@@ -67,6 +69,7 @@ def health_check():
             SystemMessage(content=HEALTH_SYSTEM),
             HumanMessage(content="请对店铺做一次自动运营体检，找出最近7天异常并归因。"),
         ]})
+        log_trace("health_web", resp["messages"])
         return resp["messages"][-1].content
     return _run_async(run())
 

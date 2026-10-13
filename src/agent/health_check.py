@@ -5,12 +5,13 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from utils.config import settings
+from utils.trace import log_trace
 from langchain_deepseek import ChatDeepSeek
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import SystemMessage, HumanMessage
 
-SERVER = Path(__file__).resolve().parents[1] / "mcp_servers" / "ecomdb_server.py"
+SERVER = settings.mcp_server_path
 
 SYSTEM = """你是一名资深电商运营分析师。对店铺做自动体检，严格按流程：
 1. 第一步调用 scan_anomalies 获取确定性的异常清单。
@@ -35,13 +36,14 @@ async def main():
         api_key=settings.deepseek_api_key,
         base_url=settings.deepseek_base_url,
         model=settings.deepseek_model,
-        temperature=0,
+        temperature=settings.llm_temperature,
     )
     agent = create_react_agent(llm, tools)
     resp = await agent.ainvoke({"messages": [
         SystemMessage(content=SYSTEM),
         HumanMessage(content=QUESTION),
     ]})
+    log_trace("health_check", resp["messages"])
     print("=" * 70)
     print(resp["messages"][-1].content)
 

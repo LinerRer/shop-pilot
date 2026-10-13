@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import json
 import datetime
 from pathlib import Path
 
@@ -82,6 +83,20 @@ async def main():
     out_path = OUT_DIR / f"运营日报_{datetime.date.today().isoformat()}.docx"
     build_docx(anomalies, ai_text, out_path)
     print(f"日报已生成：{out_path}")
+
+    from database.models import engine, DailyReport
+    from sqlalchemy.orm import Session
+    high_count = sum(1 for a in anomalies if a["severity"] == "high")
+    with Session(engine) as sess:
+        sess.add(DailyReport(
+            report_date=datetime.date.today(),
+            anomaly_count=len(anomalies),
+            high_count=high_count,
+            anomalies_json=json.dumps(anomalies, ensure_ascii=False),
+            root_cause=ai_text,
+        ))
+        sess.commit()
+    print(f"已入库：异常{len(anomalies)}条 / high {high_count}条")
 
 
 if __name__ == "__main__":
